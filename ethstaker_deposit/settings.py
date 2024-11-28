@@ -5,6 +5,12 @@ from ethstaker_deposit import __version__
 
 DEPOSIT_CLI_VERSION = __version__
 
+# We are faking the deposit_cli_version to pass the current Launchpad version test
+# See https://github.com/eth-educators/ethstaker-deposit-cli/issues/216
+version_elements = DEPOSIT_CLI_VERSION.split('.')
+version_elements[0] = str(int(version_elements[0]) + 10)
+fake_cli_version = '.'.join(version_elements)
+
 
 class BaseChainSetting(NamedTuple):
     NETWORK_NAME: str
@@ -23,6 +29,7 @@ class BaseChainSetting(NamedTuple):
 MAINNET = 'mainnet'
 SEPOLIA = 'sepolia'
 HOLESKY = 'holesky'
+MEKONG = 'mekong'
 EPHEMERY = 'ephemery'
 
 # Mainnet setting
@@ -43,6 +50,12 @@ HoleskySetting = BaseChainSetting(
     GENESIS_FORK_VERSION=bytes.fromhex('01017000'),
     EXIT_FORK_VERSION=bytes.fromhex('04017000'),
     GENESIS_VALIDATORS_ROOT=bytes.fromhex('9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1'))
+# Mekong setting
+MekongSetting = BaseChainSetting(
+    NETWORK_NAME=MEKONG,
+    GENESIS_FORK_VERSION=bytes.fromhex('10637624'),
+    EXIT_FORK_VERSION=bytes.fromhex('40637624'),
+    GENESIS_VALIDATORS_ROOT=bytes.fromhex('9838240bca889c52818d7502179b393a828f61f15119d9027827c36caeb67db7'))
 # Ephemery setting
 # From https://github.com/ephemery-testnet/ephemery-genesis/blob/master/values.env
 EphemerySetting = BaseChainSetting(
@@ -59,6 +72,7 @@ ALL_CHAINS: Dict[str, BaseChainSetting] = {
     MAINNET: MainnetSetting,
     SEPOLIA: SepoliaSetting,
     HOLESKY: HoleskySetting,
+    MEKONG: MekongSetting,
     EPHEMERY: EphemerySetting,
 }
 

@@ -10,6 +10,7 @@ from ethstaker_deposit.exceptions import MultiLanguageError, ValidationError
 from ethstaker_deposit.key_handling.key_derivation.mnemonic import (
     reconstruct_mnemonic,
 )
+from ethstaker_deposit.utils import config
 from ethstaker_deposit.utils.constants import (
     MNEMONIC_LANG_OPTIONS,
     WORD_LISTS_PATH,
@@ -18,6 +19,7 @@ from ethstaker_deposit.utils.click import (
     captive_prompt_callback,
     choice_prompt_func,
     jit_option,
+    prompt_if_none,
 )
 from ethstaker_deposit.utils.intl import fuzzy_reverse_dict_lookup, get_first_options, load_text
 from ethstaker_deposit.utils.validation import validate_int_range
@@ -38,7 +40,7 @@ def load_mnemonic_arguments_decorator(function: Callable[..., Any]) -> Callable[
                 captive_prompt_callback(
                     lambda mnemonic: validate_mnemonic(mnemonic=mnemonic, language=c.params.get('mnemonic_language')),
                     prompt=lambda: load_text(['arg_mnemonic', 'prompt'], func='existing_mnemonic'),
-                    prompt_if_none=True,
+                    prompt_if=prompt_if_none,
                 )(c, _, mnemonic),
             help=lambda: load_text(['arg_mnemonic', 'help'], func='existing_mnemonic'),
             param_decls='--mnemonic',
@@ -104,7 +106,7 @@ def validate_mnemonic_language(ctx: click.Context, param: Any, language: str) ->
         lambda num: validate_int_range(num, 0, 2**32),
         lambda: load_text(['arg_validator_start_index', 'prompt'], func='existing_mnemonic'),
         lambda: load_text(['arg_validator_start_index', 'confirm'], func='existing_mnemonic'),
-        prompt_if_none=True,
+        prompt_if=prompt_if_none,
     ),
     default=0,
     help=lambda: load_text(['arg_validator_start_index', 'help'], func='existing_mnemonic'),
@@ -118,6 +120,8 @@ def existing_mnemonic(ctx: click.Context, mnemonic: str, mnemonic_password: str,
     ctx.obj.update({'mnemonic': mnemonic, 'mnemonic_password': mnemonic_password})
     # Clear clipboard
     try:  # Failing this on headless Linux is expected
+        if not config.non_interactive:
+            click.pause(load_text(['msg_confirm_clipboard_clearing']))
         pyperclip.copy(' ')
     except Exception:
         pass

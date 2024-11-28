@@ -29,26 +29,24 @@ For other installation options, including building with python or virtualenv and
 
 1. Make sure you have [the GitHub CLI installed](https://cli.github.com/).
 
-2. Download [the associated attestation](https://github.com/eth-educators/ethstaker-deposit-cli/attestations) for the archive you downloaded in Step 1.
-
-3. Verify the attestation file against the corresponding file but be sure to replace the contents with the exact file name:
+2. Verify the attestation against the corresponding file but be sure to replace the contents with the exact file name:
 ```sh
-gh attestation verify ethstaker_deposit-cli-*******-***.*** --owner eth-educators --bundle ./eth-educators-ethstaker-deposit-cli-attestation-*******.sigstore.json
+gh attestation verify ethstaker_deposit-cli-*******-***.*** --repo eth-educators/ethstaker-deposit-cli
 ```
 
 This step requires you to be online. If you want to perform this offline, follow [these instructions from GitHub](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/verifying-attestations-offline).
 
-4. You should see `✓ Verification succeeded!` in the output **otherwise do not continue**.
+3. You should see `✓ Verification succeeded!` in the output **otherwise do not continue**.
 
 ## Step 3: Usage
 
 **Windows users:** You should replace `./deposit` with `deposit.exe` to run properly.
 
-**MacOS users:** In order to run from the terminal, you must first open the file to bypass MacOS code signing issues. Do so by right clicking the `deposit` file and then selecting `Open`.
+**MacOS users:** In order to run from the terminal, you must first open the file to bypass MacOS code signing issues. Do so by right-clicking the `deposit` file and then selecting `Open`.
 
 **Linux users:** On Unix-based systems, keystores and the deposit_data*.json have 440/-r--r----- file permissions (user & group read only). This improves security by limiting which users and processes that have access to these files. If you are getting permission denied errors when handling your keystores, consider changing which user/group owns the file (with chown) or, if need be, change the file permissions with chmod.
 
-Determine which command best suites what you would like to accomplish:
+Determine which command best suits what you would like to accomplish:
 
 - **[new-mnemonic](new_mnemonic.md)**: Used to generate a new mnemonic, validator keys, and deposit file. It is not recommended to use this command if you have existing validators.
 

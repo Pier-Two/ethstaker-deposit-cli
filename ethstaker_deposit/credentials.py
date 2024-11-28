@@ -18,10 +18,15 @@ from ethstaker_deposit.key_handling.keystore import (
     Pbkdf2Keystore,
     ScryptKeystore,
 )
-from ethstaker_deposit.settings import DEPOSIT_CLI_VERSION, BaseChainSetting
+from ethstaker_deposit.settings import (
+    fake_cli_version,
+    DEPOSIT_CLI_VERSION,
+    BaseChainSetting,
+)
 from ethstaker_deposit.utils.constants import (
     BLS_WITHDRAWAL_PREFIX,
     EXECUTION_ADDRESS_WITHDRAWAL_PREFIX,
+    COMPOUNDING_WITHDRAWAL_PREFIX,
     ETH2GWEI,
     MAX_DEPOSIT_AMOUNT,
     MIN_DEPOSIT_AMOUNT,
@@ -38,11 +43,15 @@ from ethstaker_deposit.utils.ssz import (
     DepositMessage,
     SignedBLSToExecutionChange,
 )
+from ethstaker_deposit.utils.file_handling import (
+    sensitive_opener,
+)
 
 
 class WithdrawalType(Enum):
     BLS_WITHDRAWAL = 0
     EXECUTION_ADDRESS_WITHDRAWAL = 1
+    COMPOUNDING_WITHDRAWAL = 2
 
 
 class Credential:
@@ -53,6 +62,7 @@ class Credential:
     def __init__(self, *, mnemonic: str, mnemonic_password: str,
                  index: int, amount: int, chain_setting: BaseChainSetting,
                  hex_withdrawal_address: Optional[HexAddress],
+                 compounding: Optional[bool] = False,
                  use_pbkdf2: Optional[bool] = False):
         # Set path as EIP-2334 format
         # https://eips.ethereum.org/EIPS/eip-2334
@@ -69,6 +79,7 @@ class Credential:
         self.amount = amount
         self.chain_setting = chain_setting
         self.hex_withdrawal_address = hex_withdrawal_address
+        self.compounding = compounding
         self.use_pbkdf2 = use_pbkdf2
 
     @property
@@ -88,7 +99,10 @@ class Credential:
     @property
     def withdrawal_prefix(self) -> bytes:
         if self.withdrawal_address is not None:
-            return EXECUTION_ADDRESS_WITHDRAWAL_PREFIX
+            if self.compounding:
+                return COMPOUNDING_WITHDRAWAL_PREFIX
+            else:
+                return EXECUTION_ADDRESS_WITHDRAWAL_PREFIX
         else:
             return BLS_WITHDRAWAL_PREFIX
 
@@ -98,6 +112,8 @@ class Credential:
             return WithdrawalType.BLS_WITHDRAWAL
         elif self.withdrawal_prefix == EXECUTION_ADDRESS_WITHDRAWAL_PREFIX:
             return WithdrawalType.EXECUTION_ADDRESS_WITHDRAWAL
+        elif self.withdrawal_prefix == COMPOUNDING_WITHDRAWAL_PREFIX:
+            return WithdrawalType.COMPOUNDING_WITHDRAWAL
         else:
             raise ValueError(f"Invalid withdrawal_prefix {self.withdrawal_prefix.hex()}")
 
@@ -111,6 +127,13 @@ class Credential:
             and self.withdrawal_address is not None
         ):
             withdrawal_credentials = EXECUTION_ADDRESS_WITHDRAWAL_PREFIX
+            withdrawal_credentials += b'\x00' * 11
+            withdrawal_credentials += self.withdrawal_address
+        elif (
+            self.withdrawal_type == WithdrawalType.COMPOUNDING_WITHDRAWAL
+            and self.withdrawal_address is not None
+        ):
+            withdrawal_credentials = COMPOUNDING_WITHDRAWAL_PREFIX
             withdrawal_credentials += b'\x00' * 11
             withdrawal_credentials += self.withdrawal_address
         else:
@@ -149,7 +172,7 @@ class Credential:
         datum_dict.update({'deposit_data_root': signed_deposit_datum.hash_tree_root})
         datum_dict.update({'fork_version': self.chain_setting.GENESIS_FORK_VERSION})
         datum_dict.update({'network_name': self.chain_setting.NETWORK_NAME})
-        datum_dict.update({'deposit_cli_version': DEPOSIT_CLI_VERSION})
+        datum_dict.update({'deposit_cli_version': fake_cli_version})
         return datum_dict
 
     def signing_keystore(self, password: str) -> Keystore:
@@ -272,6 +295,7 @@ class CredentialList:
                       chain_setting: BaseChainSetting,
                       start_index: int,
                       hex_withdrawal_address: Optional[HexAddress],
+                      compounding: Optional[bool] = False,
                       use_pbkdf2: Optional[bool] = False) -> 'CredentialList':
         if len(amounts) != num_keys:
             raise ValueError(
@@ -289,6 +313,7 @@ class CredentialList:
                 'amount': amounts[index - start_index],
                 'chain_setting': chain_setting,
                 'hex_withdrawal_address': hex_withdrawal_address,
+                'compounding': compounding,
                 'use_pbkdf2': use_pbkdf2,
             } for index in key_indices]
 
@@ -364,8 +389,6 @@ class CredentialList:
                     bar.update(1)
 
         filefolder = os.path.join(folder, 'bls_to_execution_change-%i.json' % time.time())
-        with open(filefolder, 'w') as f:
+        with open(filefolder, 'w', encoding='utf-8', opener=sensitive_opener) as f:
             json.dump(bls_to_execution_changes, f)
-        if os.name == 'posix':
-            os.chmod(filefolder, int('440', 8))  # Read for owner & group
         return filefolder
